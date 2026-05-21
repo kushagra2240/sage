@@ -5,46 +5,41 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from agents.analyst import analyze_findings
+from llm.base import CompletionResult
 
 
-def _mock_message(text: str, model: str = "claude-sonnet-4-20250514"):
-    block = MagicMock()
-    block.type = "text"
-    block.text = text
-    message = MagicMock()
-    message.content = [block]
-    message.model = model
-    message.usage.input_tokens = 100
-    message.usage.output_tokens = 50
-    return message
+def _mock_completion(text: str = "Key themes: A, B, C.") -> CompletionResult:
+    return CompletionResult(
+        text=text,
+        model="test-model",
+        input_tokens=100,
+        output_tokens=50,
+    )
 
 
 class TestAnalyzeFindings:
-    @patch("agents.analyst._create_client")
-    def test_returns_analysis_on_success(self, mock_create_client):
-        mock_client = MagicMock()
-        mock_client.messages.create.return_value = _mock_message(
-            "Key themes: A, B, C."
-        )
-        mock_create_client.return_value = mock_client
+    @patch("agents.analyst.get_default_provider")
+    def test_returns_analysis_on_success(self, mock_get_provider):
+        mock_provider = MagicMock()
+        mock_provider.complete.return_value = _mock_completion()
+        mock_get_provider.return_value = mock_provider
 
         result = analyze_findings("Raw research findings here.")
 
         assert result["analysis"] == "Key themes: A, B, C."
-        assert result["model"] == "claude-sonnet-4-20250514"
-        assert result["usage"]["input_tokens"] == 100
+        assert result["model"] == "test-model"
         assert result["usage"]["output_tokens"] == 50
-        mock_client.messages.create.assert_called_once()
+        mock_provider.complete.assert_called_once()
 
     def test_raises_on_empty_findings(self):
         with pytest.raises(ValueError, match="non-empty"):
             analyze_findings("")
 
-    @patch("agents.analyst._create_client")
-    def test_propagates_anthropic_api_errors(self, mock_create_client):
-        mock_client = MagicMock()
-        mock_client.messages.create.side_effect = Exception("API rate limit")
-        mock_create_client.return_value = mock_client
+    @patch("agents.analyst.get_default_provider")
+    def test_propagates_provider_errors(self, mock_get_provider):
+        mock_provider = MagicMock()
+        mock_provider.complete.side_effect = Exception("API rate limit")
+        mock_get_provider.return_value = mock_provider
 
         with pytest.raises(Exception, match="rate limit"):
             analyze_findings("Some findings to analyze.")

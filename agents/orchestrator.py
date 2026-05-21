@@ -2,93 +2,50 @@
 
 from __future__ import annotations
 
-import json
 from typing import Any
 
-import anthropic
-
 from agents.analyst import analyze_findings
-from agents.researcher import MIN_PLAN_STEPS, MAX_PLAN_STEPS, Researcher, validate_plan
+from agents.researcher import Researcher, validate_plan
 from agents.writer import write_report
-from config import get_anthropic_api_key
+from config import LLMProviderName, get_default_model, resolve_provider_name
+from llm import LLMProvider, get_provider
+from llm.planning import (
+    build_json_planning_user_message,
+    build_planning_user_message,
+)
 from skills.prompts import ORCHESTRATOR_PROMPT
-
-DEFAULT_MODEL = "claude-sonnet-4-6"
-
-PLAN_TOOL_NAME = "submit_research_plan"
-
-PLAN_TOOL = {
-    "name": PLAN_TOOL_NAME,
-    "description": (
-        "Submit a structured research plan with 3-5 steps. "
-        "Each step must include a focused web search query."
-    ),
-    "input_schema": {
-        "type": "object",
-        "properties": {
-            "steps": {
-                "type": "array",
-                "description": "Ordered research steps (3 to 5).",
-                "minItems": MIN_PLAN_STEPS,
-                "maxItems": MAX_PLAN_STEPS,
-                "items": {
-                    "type": "object",
-                    "properties": {
-                        "step": {
-                            "type": "integer",
-                            "description": "Step number starting at 1",
-                        },
-                        "search_query": {
-                            "type": "string",
-                            "description": "Web search query for this step",
-                        },
-                        "goal": {
-                            "type": "string",
-                            "description": "What this step should uncover",
-                        },
-                    },
-                    "required": ["step", "search_query", "goal"],
-                },
-            }
-        },
-        "required": ["steps"],
-    },
-}
-
-
-def _create_client() -> anthropic.Anthropic:
-    return anthropic.Anthropic(api_key=get_anthropic_api_key())
-
-
-def _extract_plan_from_message(message: anthropic.types.Message) -> list[dict[str, Any]]:
-    """Parse the tool_use block containing the research plan."""
-    for block in message.content:
-        if block.type == "tool_use" and block.name == PLAN_TOOL_NAME:
-            steps = block.input.get("steps", [])
-            return validate_plan(steps)
-
-    raise RuntimeError("Model did not return a research plan via tool_use")
 
 
 class Orchestrator:
     """
-    Coordinates multi-agent research using Claude for planning.
+    Coordinates multi-agent research using a configurable LLM for planning.
 
-    Uses tool_use to produce a 3-5 step strategy, then runs Researcher →
-    Analyst → Writer sequentially, passing outputs between stages.
+    Anthropic: tool_use for structured plans. OpenAI-compatible: JSON fallback.
+    Then runs Researcher → Analyst → Writer sequentially.
     """
 
     def __init__(
         self,
-        model: str = DEFAULT_MODEL,
+        model: str | None = None,
         researcher: Researcher | None = None,
+        provider: LLMProvider | str | LLMProviderName | None = None,
     ) -> None:
-        self.model = model
+        self._provider_name = resolve_provider_name(provider)
+        self._provider = get_provider(self._provider_name)
+        self.model = model or get_default_model(self._provider_name)
         self.researcher = researcher or Researcher()
+
+    @property
+    def provider(self) -> LLMProvider:
+        return self._provider
+
+    @property
+    def provider_name(self) -> str:
+        return self._provider_name.value
 
     def create_plan(self, question: str, max_tokens: int = 1024) -> list[dict[str, Any]]:
         """
-        Use Claude with tool_use to generate a 3-5 step research strategy.
+        Generate a 3-5 step research strategy using the configured LLM.
 
         Args:
             question: The research question or topic.
@@ -100,26 +57,23 @@ class Orchestrator:
         if not question or not question.strip():
             raise ValueError("question must be a non-empty string")
 
-        client = _create_client()
-        message = client.messages.create(
-            model=self.model,
-            max_tokens=max_tokens,
-            system=ORCHESTRATOR_PROMPT,
-            messages=[
-                {
-                    "role": "user",
-                    "content": (
-                        f"Research question: {question.strip()}\n\n"
-                        "Create a research plan with 3-5 steps. Each step needs "
-                        "a specific web search query and a clear goal."
-                    ),
-                }
-            ],
-            tools=[PLAN_TOOL],
-            tool_choice={"type": "tool", "name": PLAN_TOOL_NAME},
-        )
+        if self._provider.name == "anthropic":
+            return self._provider.create_plan_with_tools(  # type: ignore[attr-defined]
+                system=ORCHESTRATOR_PROMPT,
+                user=build_planning_user_message(question),
+                model=self.model,
+                max_tokens=max_tokens,
+            )
 
-        return _extract_plan_from_message(message)
+        if self._provider.name == "openai":
+            return self._provider.create_plan_json(  # type: ignore[attr-defined]
+                system=ORCHESTRATOR_PROMPT,
+                user=build_json_planning_user_message(question),
+                model=self.model,
+                max_tokens=max_tokens,
+            )
+
+        raise RuntimeError(f"Unsupported provider for planning: {self._provider.name}")
 
     def run(
         self,
@@ -136,14 +90,21 @@ class Orchestrator:
 
         plan = self.create_plan(question)
         research = self.researcher.run_plan(plan)
-        analysis_result = analyze_findings(research["context"])
+        analysis_result = analyze_findings(
+            research["context"],
+            model=self.model,
+            provider=self._provider,
+        )
         report_result = write_report(
             analysis_result["analysis"],
             audience=audience,
+            model=self.model,
+            provider=self._provider,
         )
 
         return {
             "query": question.strip(),
+            "provider": self.provider_name,
             "model": self.model,
             "orchestrator_prompt": ORCHESTRATOR_PROMPT,
             "plan": plan,
@@ -157,6 +118,8 @@ def run_research_pipeline(
     query: str,
     audience: str = "general",
     max_results: int = 5,
+    provider: str | LLMProviderName | None = None,
+    model: str | None = None,
 ) -> dict[str, Any]:
     """
     Run the full multi-agent research pipeline for a query.
@@ -164,4 +127,4 @@ def run_research_pipeline(
     Backward-compatible entry point delegating to Orchestrator.
     """
     _ = max_results  # retained for CLI compatibility; Researcher uses its own default
-    return Orchestrator().run(query, audience=audience)
+    return Orchestrator(provider=provider, model=model).run(query, audience=audience)

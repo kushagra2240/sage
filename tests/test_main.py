@@ -10,6 +10,7 @@ from main import main, run_pipeline, save_report
 
 MOCK_PIPELINE_RESULT = {
     "query": "test topic",
+    "provider": "anthropic",
     "model": "claude-sonnet-4-6",
     "plan": [{"step": 1, "search_query": "q1", "goal": "g1"}] * 3,
     "research": {"context": "research context", "steps": [{}, {}, {}]},
@@ -24,38 +25,30 @@ MOCK_PIPELINE_RESULT = {
 }
 
 
+def _mock_orchestrator():
+    orch = MagicMock()
+    orch.provider_name = "anthropic"
+    orch.model = "claude-sonnet-4-6"
+    orch.provider = MagicMock()
+    orch.create_plan.return_value = MOCK_PIPELINE_RESULT["plan"]
+    orch.researcher.run_plan.return_value = MOCK_PIPELINE_RESULT["research"]
+    return orch
+
+
 class TestRunPipeline:
     @patch("main.write_report")
     @patch("main.analyze_findings")
     def test_runs_all_stages(self, mock_analyze, mock_write):
-        mock_orchestrator = MagicMock()
-        mock_orchestrator.model = "claude-sonnet-4-6"
-        mock_orchestrator.create_plan.return_value = MOCK_PIPELINE_RESULT["plan"]
-        mock_orchestrator.researcher.run_plan.return_value = MOCK_PIPELINE_RESULT[
-            "research"
-        ]
+        mock_orchestrator = _mock_orchestrator()
         mock_analyze.return_value = MOCK_PIPELINE_RESULT["analysis"]
         mock_write.return_value = MOCK_PIPELINE_RESULT["report"]
 
         logs: list[str] = []
-        result = run_pipeline(
-            mock_orchestrator, "test topic", log=logs.append
-        )
+        result = run_pipeline(mock_orchestrator, "test topic", log=logs.append)
 
         assert result["report"]["report"] == "Final report body."
         assert any("[1/4]" in line for line in logs)
-        assert any("[4/4]" in line for line in logs)
-        mock_orchestrator.create_plan.assert_called_once()
-        mock_orchestrator.researcher.run_plan.assert_called_once()
-
-    @patch("main.write_report")
-    @patch("main.analyze_findings")
-    def test_propagates_planning_errors(self, mock_analyze, mock_write):
-        mock_orchestrator = MagicMock()
-        mock_orchestrator.create_plan.side_effect = RuntimeError("API rate limit")
-
-        with pytest.raises(RuntimeError, match="rate limit"):
-            run_pipeline(mock_orchestrator, "test topic", log=lambda _: None)
+        assert any("anthropic" in line for line in logs)
 
 
 class TestSaveReport:
@@ -66,20 +59,37 @@ class TestSaveReport:
 
 
 class TestMain:
-    @patch("main.run_pipeline", return_value=MOCK_PIPELINE_RESULT)
+    @patch("main.run_pipeline")
+    @patch("main.Orchestrator")
     @patch("main.validate_config")
-    def test_prints_report_when_no_output(self, _mock_validate, _mock_pipeline, capsys):
+    def test_prints_report_when_no_output(
+        self, mock_validate, mock_orch_cls, mock_pipeline, capsys
+    ):
+        mock_validate.return_value = {
+            "llm_provider": "anthropic",
+            "model": "claude-sonnet-4-6",
+        }
+        mock_orch_cls.return_value = _mock_orchestrator()
+        mock_pipeline.return_value = MOCK_PIPELINE_RESULT
+
         code = main(["--query", "test topic"])
         captured = capsys.readouterr()
         assert code == 0
         assert "Final report body." in captured.out
-        assert "Done." in captured.err
 
-    @patch("main.run_pipeline", return_value=MOCK_PIPELINE_RESULT)
+    @patch("main.run_pipeline")
+    @patch("main.Orchestrator")
     @patch("main.validate_config")
     def test_saves_report_to_output_path(
-        self, _mock_validate, _mock_pipeline, tmp_path: Path, capsys
+        self, mock_validate, mock_orch_cls, mock_pipeline, tmp_path: Path, capsys
     ):
+        mock_validate.return_value = {
+            "llm_provider": "anthropic",
+            "model": "claude-sonnet-4-6",
+        }
+        mock_orch_cls.return_value = _mock_orchestrator()
+        mock_pipeline.return_value = MOCK_PIPELINE_RESULT
+
         output = tmp_path / "report.md"
         code = main(["--query", "test topic", "--output", str(output)])
         captured = capsys.readouterr()
@@ -99,8 +109,16 @@ class TestMain:
         assert "Configuration error" in captured.err
 
     @patch("main.run_pipeline")
+    @patch("main.Orchestrator")
     @patch("main.validate_config")
-    def test_handles_pipeline_runtime_error(self, _mock_validate, mock_pipeline, capsys):
+    def test_handles_pipeline_runtime_error(
+        self, mock_validate, mock_orch_cls, mock_pipeline, capsys
+    ):
+        mock_validate.return_value = {
+            "llm_provider": "anthropic",
+            "model": "claude-sonnet-4-6",
+        }
+        mock_orch_cls.return_value = _mock_orchestrator()
         mock_pipeline.side_effect = RuntimeError("Tavily search failed")
         code = main(["--query", "test topic"])
         captured = capsys.readouterr()

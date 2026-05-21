@@ -1,4 +1,7 @@
-.env.example
+.env
+research.md
+report.md
+reports/
 .venv
 __pycache__
 *.pyc

@@ -113,10 +113,38 @@ pip install -r requirements.txt
 cp .env.example .env
 ```
 
-Edit `.env` and set:
+Edit `.env` and set keys for your chosen LLM provider plus Tavily (always required for web search).
 
-- `ANTHROPIC_API_KEY` — from [console.anthropic.com](https://console.anthropic.com)
-- `TAVILY_API_KEY` — from [tavily.com](https://tavily.com) (free tier is sufficient)
+### Anthropic (default)
+
+```env
+LLM_PROVIDER=anthropic
+ANTHROPIC_API_KEY=sk-ant-...
+ANTHROPIC_MODEL=claude-sonnet-4-6
+TAVILY_API_KEY=tvly-...
+```
+
+### OpenRouter (hosted open-weight models)
+
+```env
+LLM_PROVIDER=openai
+OPENAI_API_KEY=sk-or-...
+OPENAI_BASE_URL=https://openrouter.ai/api/v1
+OPENAI_MODEL=meta-llama/llama-3.3-70b-instruct
+TAVILY_API_KEY=tvly-...
+```
+
+### Ollama (local)
+
+```env
+LLM_PROVIDER=openai
+OPENAI_BASE_URL=http://localhost:11434/v1
+OPENAI_API_KEY=ollama
+OPENAI_MODEL=llama3.3
+TAVILY_API_KEY=tvly-...
+```
+
+Planning uses JSON output for `openai` providers (not Anthropic `tool_use`). Prefer 70B-class models for reliable 3–5 step plans.
 
 ---
 
@@ -133,7 +161,7 @@ python main.py --query "What are the main tradeoffs in multi-agent AI system des
 ```
 Starting Sage research pipeline for: 'What are the main tradeoffs...'
 
-[1/4] Planning research strategy with Claude...
+[1/4] Planning research strategy (anthropic)...
       Created 4-step plan.
       • Step 1: multi-agent AI architecture patterns
       ...
@@ -161,6 +189,12 @@ Optional audience hint for the Writer:
 python main.py --query "Explain MCP servers" --audience technical --output mcp-report.md
 ```
 
+Override provider and model from the CLI:
+
+```bash
+python main.py --query "Topic" --provider openai --model llama3.3 --output report.md
+```
+
 **Run tests:**
 
 ```bash
@@ -170,7 +204,7 @@ pytest tests/ -v
 **Run the MCP server standalone** (for debugging tools):
 
 ```bash
-python mcp_server/server.py
+python -m mcp_server
 ```
 
 ---
@@ -180,9 +214,10 @@ python mcp_server/server.py
 ```
 sage/
 ├── main.py                 # CLI: --query, --output, staged progress
-├── config.py               # Loads ANTHROPIC_API_KEY, TAVILY_API_KEY
+├── config.py               # LLM_PROVIDER + provider-specific keys
+├── llm/                    # Anthropic + OpenAI-compatible providers
 ├── agents/
-│   ├── orchestrator.py     # Plans with Claude tool_use
+│   ├── orchestrator.py     # Plans (tool_use or JSON)
 │   ├── researcher.py       # MCP client → search / extract / notes
 │   ├── analyst.py          # Synthesizes research context
 │   └── writer.py           # Produces markdown report

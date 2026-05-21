@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import sys
+import traceback
 from pathlib import Path
 from typing import Any, Callable, TextIO
 
@@ -19,6 +20,15 @@ def _default_log(message: str, stream: TextIO | None = None) -> None:
     print(message, file=stream or sys.stderr)
 
 
+def _format_exception(exc: BaseException) -> str:
+    """Format an exception, unwrapping ExceptionGroup on Python 3.11+."""
+    parts = [str(exc)]
+    if isinstance(exc, BaseExceptionGroup):
+        for i, sub in enumerate(exc.exceptions):
+            parts.append(f"  [{i + 1}] {type(sub).__name__}: {sub}")
+    return "\n".join(parts)
+
+
 def run_pipeline(
     orchestrator: Orchestrator,
     query: str,
@@ -32,8 +42,9 @@ def run_pipeline(
     """
     emit = log or _default_log
     question = query.strip()
+    provider_label = orchestrator.provider_name
 
-    emit("[1/4] Planning research strategy with Claude...")
+    emit(f"[1/4] Planning research strategy ({provider_label})...")
     plan = orchestrator.create_plan(question)
     emit(f"      Created {len(plan)}-step plan.")
     for step in plan:
@@ -44,17 +55,23 @@ def run_pipeline(
     step_count = len(research.get("steps", []))
     emit(f"      Completed {step_count} research steps.")
 
-    emit("[3/4] Analyzing findings across sources...")
-    analysis_result = analyze_findings(research["context"])
+    emit(f"[3/4] Analyzing findings ({orchestrator.model})...")
+    analysis_result = analyze_findings(
+        research["context"],
+        model=orchestrator.model,
+        provider=orchestrator.provider,
+    )
     emit(
         f"      Analysis complete "
         f"({analysis_result['usage']['output_tokens']} output tokens)."
     )
 
-    emit("[4/4] Writing final report...")
+    emit(f"[4/4] Writing final report ({orchestrator.model})...")
     report_result = write_report(
         analysis_result["analysis"],
         audience=audience,
+        model=orchestrator.model,
+        provider=orchestrator.provider,
     )
     emit(
         f"      Report complete "
@@ -63,6 +80,7 @@ def run_pipeline(
 
     return {
         "query": question,
+        "provider": orchestrator.provider_name,
         "model": orchestrator.model,
         "plan": plan,
         "research": research,
@@ -82,8 +100,9 @@ def main(argv: list[str] | None = None) -> int:
         description="Sage — multi-agent research assistant",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog=(
-            "Example:\n"
-            '  python main.py --query "How does RAG work?" --output report.md'
+            "Examples:\n"
+            '  python main.py --query "How does RAG work?" --output report.md\n'
+            "  python main.py --query \"Topic\" --provider openai --model llama3.3"
         ),
     )
     parser.add_argument(
@@ -102,6 +121,21 @@ def main(argv: list[str] | None = None) -> int:
         default="general",
         help="Target audience for the final report (default: general)",
     )
+    parser.add_argument(
+        "--provider",
+        choices=["anthropic", "openai"],
+        help="LLM provider (default: LLM_PROVIDER from .env or anthropic)",
+    )
+    parser.add_argument(
+        "--model",
+        help="Model id override (default: ANTHROPIC_MODEL or OPENAI_MODEL from .env)",
+    )
+    parser.add_argument(
+        "--verbose",
+        "-v",
+        action="store_true",
+        help="Print full traceback on failure",
+    )
     args = parser.parse_args(argv)
 
     if not args.query.strip():
@@ -109,14 +143,20 @@ def main(argv: list[str] | None = None) -> int:
         return 1
 
     try:
-        validate_config()
+        config = validate_config(provider=args.provider)
     except ConfigError as exc:
         print(f"Configuration error: {exc}", file=sys.stderr)
         print("Copy .env.example to .env and set your API keys.", file=sys.stderr)
         return 1
 
-    orchestrator = Orchestrator()
-    print(f"Starting Sage research pipeline for: {args.query.strip()!r}\n", file=sys.stderr)
+    provider_name = config["llm_provider"]
+    model = args.model or config["model"]
+    orchestrator = Orchestrator(provider=provider_name, model=model)
+
+    print(
+        f"Starting Sage ({provider_name}, {model}) for: {args.query.strip()!r}\n",
+        file=sys.stderr,
+    )
 
     try:
         result = run_pipeline(
@@ -129,9 +169,13 @@ def main(argv: list[str] | None = None) -> int:
         return 1
     except RuntimeError as exc:
         print(f"Pipeline error: {exc}", file=sys.stderr)
+        if args.verbose:
+            traceback.print_exc()
         return 1
     except Exception as exc:
-        print(f"Pipeline failed: {exc}", file=sys.stderr)
+        print(f"Pipeline failed:\n{_format_exception(exc)}", file=sys.stderr)
+        if args.verbose:
+            traceback.print_exc()
         return 1
 
     report_text = result["report"]["report"]

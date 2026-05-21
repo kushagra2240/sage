@@ -1,52 +1,45 @@
-"""Analyst agent: synthesizes research findings with Claude."""
+"""Analyst agent: synthesizes research findings with an LLM."""
 
 from typing import Any
 
-import anthropic
-
-from config import get_anthropic_api_key
+from config import get_default_model
+from llm import LLMProvider, get_default_provider
+from llm.base import CompletionResult
 from skills.prompts import ANALYST_PROMPT, format_analysis_prompt
 
-DEFAULT_MODEL = "claude-sonnet-4-20250514"
 
-
-def _create_client() -> anthropic.Anthropic:
-    return anthropic.Anthropic(api_key=get_anthropic_api_key())
+def _result_to_dict(result: CompletionResult) -> dict[str, Any]:
+    return {
+        "analysis": result.text,
+        "model": result.model,
+        "usage": {
+            "input_tokens": result.input_tokens,
+            "output_tokens": result.output_tokens,
+        },
+    }
 
 
 def analyze_findings(
     findings: str,
-    model: str = DEFAULT_MODEL,
+    model: str | None = None,
     max_tokens: int = 2048,
+    provider: LLMProvider | None = None,
 ) -> dict[str, Any]:
     """
-    Analyze research findings using the Anthropic API.
+    Analyze research findings using the configured LLM provider.
 
     Returns dict with keys: analysis, model, usage.
     """
     if not findings or not findings.strip():
         raise ValueError("findings must be a non-empty string")
 
-    client = _create_client()
-    user_prompt = format_analysis_prompt(findings.strip())
+    llm = provider or get_default_provider()
+    resolved_model = model or get_default_model()
 
-    message = client.messages.create(
-        model=model,
-        max_tokens=max_tokens,
+    result = llm.complete(
         system=ANALYST_PROMPT,
-        messages=[{"role": "user", "content": user_prompt}],
+        user=format_analysis_prompt(findings.strip()),
+        model=resolved_model,
+        max_tokens=max_tokens,
     )
-
-    text_blocks = [
-        block.text for block in message.content if block.type == "text"
-    ]
-    analysis = "\n".join(text_blocks)
-
-    return {
-        "analysis": analysis,
-        "model": message.model,
-        "usage": {
-            "input_tokens": message.usage.input_tokens,
-            "output_tokens": message.usage.output_tokens,
-        },
-    }
+    return _result_to_dict(result)

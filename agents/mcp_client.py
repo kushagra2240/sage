@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import os
 import sys
 from pathlib import Path
 from typing import Any
@@ -11,21 +12,30 @@ from mcp import ClientSession, StdioServerParameters
 from mcp.client.stdio import stdio_client
 from mcp.types import CallToolResult, TextContent
 
-DEFAULT_SERVER_SCRIPT = (
-    Path(__file__).resolve().parent.parent / "mcp_server" / "server.py"
-)
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
 
 
 def get_server_params(
-    server_script: Path | None = None,
     env: dict[str, str] | None = None,
 ) -> StdioServerParameters:
-    """Build stdio parameters to launch the local sage-tools MCP server."""
-    script = server_script or DEFAULT_SERVER_SCRIPT
+    """
+    Build stdio parameters to launch the local sage-tools MCP server.
+
+    Uses ``python -m mcp_server`` from the project root so package
+    imports resolve correctly (avoids ModuleNotFoundError).
+    """
+    # Ensure .env from project root is visible to the subprocess
+    import config  # noqa: F401 — loads dotenv into os.environ
+
+    server_env = {**os.environ}
+    if env:
+        server_env.update(env)
+
     return StdioServerParameters(
         command=sys.executable,
-        args=[str(script)],
-        env=env,
+        args=["-m", "mcp_server"],
+        env=server_env,
+        cwd=str(PROJECT_ROOT),
     )
 
 

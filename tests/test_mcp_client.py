@@ -10,10 +10,12 @@ from agents.mcp_client import get_server_params, parse_tool_result
 
 
 class TestGetServerParams:
-    def test_uses_python_and_server_script(self):
+    def test_uses_module_launch_from_project_root(self):
         params = get_server_params()
         assert params.command
-        assert any("server.py" in arg for arg in params.args)
+        assert params.args == ["-m", "mcp_server"]
+        assert params.cwd
+        assert "mcp_server" in str(params.cwd) or params.cwd.endswith("sage")
 
 
 class TestParseToolResult:

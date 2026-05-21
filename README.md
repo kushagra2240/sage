@@ -62,6 +62,7 @@ sage/
 │   ├── researcher.py      # Uses MCP tools to gather information
 │   ├── analyst.py         # Synthesizes findings across sources
 │   └── writer.py          # Produces the final markdown report
+├── llm/                   # Provider abstraction (anthropic / openai-compatible)
 ├── skills/
 │   └── prompts.py         # System prompt constants for each agent role
 ├── tests/
@@ -81,7 +82,7 @@ sage/
 
 **1. Clone the repo**
 ```bash
-git clone https://github.com/YOUR_USERNAME/sage.git
+git clone https://github.com/kushagra-2240/sage.git
 cd sage
 ```
 
@@ -99,23 +100,29 @@ pip install -r requirements.txt
 **4. Set up environment variables**
 ```bash
 cp .env.example .env
-# Edit .env and add your keys:
-# ANTHROPIC_API_KEY=sk-ant-...
-# TAVILY_API_KEY=tvly-...
 ```
 
+**Anthropic (default)** — set `LLM_PROVIDER=anthropic`, `ANTHROPIC_API_KEY`, and `TAVILY_API_KEY`.
+
+**Open-source / OpenAI-compatible** — set `LLM_PROVIDER=openai`, `OPENAI_API_KEY`, `OPENAI_BASE_URL`, `OPENAI_MODEL`, and `TAVILY_API_KEY`. Works with [OpenRouter](https://openrouter.ai), Together, Groq, or local [Ollama](https://ollama.com).
+
 Get a free Tavily API key at [tavily.com](https://tavily.com) — the free tier is enough for this project.
+
+See [WORKFLOW_README.md](WORKFLOW_README.md) for OpenRouter and Ollama example `.env` blocks.
 
 ---
 
 ## Usage
 
 ```bash
-# Basic research query
+# Anthropic (default from .env)
 python main.py --query "What are the key design patterns for multi-agent AI systems?"
 
 # Save report to a file
 python main.py --query "How does RAG work?" --output report.md
+
+# OpenRouter or Ollama (open-weight models)
+python main.py --query "How does RAG work?" --provider openai --model meta-llama/llama-3.3-70b-instruct --output report.md
 ```
 
 ---
@@ -134,7 +141,9 @@ pytest tests/ -v
 
 **Multi-agent orchestration** — The orchestrator delegates to specialized agents rather than one monolithic prompt. Each agent has a focused role and system prompt, which improves output quality and makes the system easier to debug.
 
-**Tool use with the Anthropic SDK** — The researcher agent uses Claude's native tool_use feature to decide *when* and *how* to call MCP tools, rather than hardcoding a fixed search-then-summarize flow.
+**Modular LLM providers** — Swap Anthropic (native `tool_use` for planning) or any OpenAI-compatible API (JSON planning) via `LLM_PROVIDER` without changing the Researcher/MCP layer.
+
+**Tool use with the Anthropic SDK** — The orchestrator uses Claude's native `tool_use` to emit a structured research plan when `LLM_PROVIDER=anthropic`.
 
 **Agent skills as prompt templates** — System prompts are treated as first-class code in `skills/prompts.py`, versioned alongside the logic they govern.
 
@@ -146,7 +155,7 @@ pytest tests/ -v
 - [ ] Persistent document store (SQLite)
 - [ ] Web UI with Gradio
 - [ ] Support for PDF sources
-- [ ] Multi-model support (swap Claude for other providers)
+- [x] Multi-model support (Anthropic + OpenAI-compatible providers)
 
 ---
 
@@ -154,7 +163,8 @@ pytest tests/ -v
 
 | Tool | Purpose |
 |------|---------|
-| [Anthropic Python SDK](https://github.com/anthropic/anthropic-sdk-python) | Claude API + tool use |
+| [Anthropic Python SDK](https://github.com/anthropic/anthropic-sdk-python) | Claude API + tool use (default) |
+| [OpenAI Python SDK](https://github.com/openai/openai-python) | OpenRouter, Together, Groq, Ollama |
 | [FastMCP](https://github.com/jlowin/fastmcp) | MCP server framework |
 | [Tavily](https://tavily.com) | Web search API |
 | [pytest](https://pytest.org) | Testing |
