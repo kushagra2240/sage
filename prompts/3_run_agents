@@ -1,0 +1,10 @@
+Phase 3 — Build the agents
+
+"In agents/orchestrator.py, create an Orchestrator class using the 
+Anthropic Python SDK. It should take a research question, 
+use Claude claude-sonnet-4-6 with tool_use to plan a 3-5 step research strategy, then sequentially call researcher.py, analyst.py, and writer.py agents, passing results between them. 
+In agents/researcher.py, create a Researcher agent that 
+connects to the MCP server tools and runs 3-5 web searches 
+based on the orchestrator's plan, extracting content from the 
+top results and saving notes. Use the MCP client from the mcp 
+Python library to connect to the local server."

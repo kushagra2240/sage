@@ -1,0 +1,1 @@
+Also create a corresponding test file in a tests/ folder. Use pytest. Write tests that mock external API calls (Tavily, Anthropic) using unittest.mock. Test the happy path and at least one error case for each function.

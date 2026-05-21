@@ -1,0 +1,3 @@
+Phase 1 — Project scaffold (paste this into Cursor Composer first)
+
+"Create a Python project called sage for a multi-agent research assistant. Set up the following folder structure: mcp_server/ with server.py and a tools/ subfolder, agents/ with orchestrator.py, researcher.py, analyst.py, writer.py, a skills/ folder with prompts.py, and a root main.py, config.py, .env.example, and requirements.txt. Use FastMCP, anthropic, python-dotenv, and tavily-python as dependencies. Populate requirements.txt and config.py with environment variable loading for ANTHROPIC_API_KEY and TAVILY_API_KEY. Add a __init__.py to each subfolder."
