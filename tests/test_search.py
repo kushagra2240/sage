@@ -4,6 +4,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
+from config import ConfigError
 from mcp_server.tools.search import format_search_results, search_web
 
 
@@ -38,7 +39,7 @@ class TestSearchWeb:
         assert len(results) == 2
         assert results[0]["title"] == "Example Article"
         assert results[0]["url"] == "https://example.com/article"
-        assert results[0]["score"] == 0.95
+        assert results[0]["snippet"] == "Sample content about the topic."
         mock_client.search.assert_called_once_with(
             query="quantum computing", max_results=3
         )
@@ -67,8 +68,6 @@ class TestSearchWeb:
     @patch("mcp_server.tools.search.get_tavily_api_key")
     @patch("mcp_server.tools.search.TavilyClient")
     def test_propagates_api_errors(self, mock_client_cls, mock_get_key):
-        from config import ConfigError
-
         mock_get_key.side_effect = ConfigError("TAVILY_API_KEY is not set")
 
         with pytest.raises(ConfigError):
@@ -78,8 +77,8 @@ class TestSearchWeb:
 class TestFormatSearchResults:
     def test_formats_multiple_results(self):
         results = [
-            {"title": "A", "url": "https://a.com", "content": "Content A"},
-            {"title": "B", "url": "https://b.com", "content": "Content B"},
+            {"title": "A", "url": "https://a.com", "snippet": "Content A"},
+            {"title": "B", "url": "https://b.com", "snippet": "Content B"},
         ]
         text = format_search_results(results)
         assert "[1] A" in text

@@ -11,8 +11,7 @@ MOCK_RESULTS = [
     {
         "title": "Test Source",
         "url": "https://test.example",
-        "content": "Relevant information.",
-        "score": 0.9,
+        "snippet": "Relevant information.",
     }
 ]
 

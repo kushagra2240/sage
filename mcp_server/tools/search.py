@@ -11,7 +11,7 @@ def search_web(query: str, max_results: int = 5) -> list[dict[str, Any]]:
     """
     Search the web via Tavily and return normalized result dicts.
 
-    Each result contains: title, url, content, score (when available).
+    Each result contains: title, url, snippet.
     """
     if not query or not query.strip():
         raise ValueError("query must be a non-empty string")
@@ -26,8 +26,7 @@ def search_web(query: str, max_results: int = 5) -> list[dict[str, Any]]:
         {
             "title": item.get("title", ""),
             "url": item.get("url", ""),
-            "content": item.get("content", ""),
-            "score": item.get("score"),
+            "snippet": item.get("content", ""),
         }
         for item in results
     ]
@@ -43,6 +42,6 @@ def format_search_results(results: list[dict[str, Any]]) -> str:
         parts.append(
             f"[{i}] {item.get('title', 'Untitled')}\n"
             f"URL: {item.get('url', '')}\n"
-            f"{item.get('content', '')}"
+            f"{item.get('snippet', '')}"
         )
     return "\n\n".join(parts)
