@@ -178,11 +178,9 @@ pytest tests/ -v
 
 ## Blog — "Agents in Practice" series
 
-Three-part write-up on how Sage works, with code (drafts in [`content/`](content/); live URLs added as each part is published):
+Write-ups on how Sage works, with code. Links added as each part is published:
 
-1. **Building an MCP server from scratch** — FastMCP, stdio transport, and the `Connection closed` war story
-2. **One agent, one job** — why a four-agent pipeline beats one mega-prompt
-3. **One env var, any model** — forced tool_use vs JSON planning behind a single validator
+1. **Building an MCP server from scratch** — FastMCP, stdio transport, and the `Connection closed` war story *(coming soon)*
 
 ---
 
