@@ -2,14 +2,14 @@
 
 from __future__ import annotations
 
-from llm.anthropic_provider import AnthropicProvider
-from llm.base import LLMProvider
-from llm.openai_provider import OpenAICompatibleProvider
 from config import (
     LLMProviderName,
     get_llm_provider_name,
     resolve_provider_name,
 )
+from llm.anthropic_provider import AnthropicProvider
+from llm.base import LLMProvider
+from llm.openai_provider import OpenAICompatibleProvider
 
 _provider_cache: dict[tuple[str, str | None, str | None], LLMProvider] = {}
 

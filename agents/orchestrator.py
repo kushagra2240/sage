@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import Any
 
 from agents.analyst import analyze_findings
-from agents.researcher import Researcher, validate_plan
+from agents.researcher import Researcher
 from agents.writer import write_report
 from config import LLMProviderName, get_default_model, resolve_provider_name
 from llm import LLMProvider, get_provider

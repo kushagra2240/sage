@@ -5,10 +5,8 @@ from unittest.mock import MagicMock, patch
 import httpx
 import pytest
 
-from config import ConfigError
 from mcp_server.server import extract_content, save_note, web_search
 from mcp_server.tools.notes import clear_notes
-
 
 SAMPLE_TAVILY_RESPONSE = {
     "results": [

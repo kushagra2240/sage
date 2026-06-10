@@ -1,7 +1,6 @@
 """Tests for agents.mcp_client helpers."""
 
 import json
-from unittest.mock import MagicMock
 
 import pytest
 from mcp.types import CallToolResult, TextContent

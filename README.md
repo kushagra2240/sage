@@ -22,7 +22,7 @@ User query
 ┌─────────────────────────────────────┐
 │         Orchestrator Agent          │
 │  Plans research strategy using      │
-│  Claude claude-sonnet-4-6 + tool_use        │
+│  Claude (tool_use) or JSON planning │
 └──────┬──────────────┬───────────────┘
        │              │              │
        ▼              ▼              ▼
@@ -53,22 +53,26 @@ User query
 sage/
 ├── mcp_server/
 │   ├── server.py          # FastMCP server — exposes tools to Claude
+│   ├── __main__.py        # Enables `python -m mcp_server`
 │   └── tools/
-│       ├── web_search.py       # Tavily API wrapper
-│       ├── content_extractor.py # URL → clean text
-│       └── document_store.py   # In-memory note storage
+│       ├── search.py      # Tavily API wrapper
+│       ├── content.py     # URL → clean text (httpx + BeautifulSoup)
+│       └── notes.py       # In-memory note storage
 ├── agents/
 │   ├── orchestrator.py    # Plans and delegates research steps
 │   ├── researcher.py      # Uses MCP tools to gather information
 │   ├── analyst.py         # Synthesizes findings across sources
-│   └── writer.py          # Produces the final markdown report
+│   ├── writer.py          # Produces the final markdown report
+│   └── mcp_client.py      # stdio client helpers for sage-tools
 ├── llm/                   # Provider abstraction (anthropic / openai-compatible)
+│   ├── anthropic_provider.py
+│   ├── openai_provider.py
+│   ├── factory.py
+│   └── planning.py        # Plan tool schema + JSON parsing
 ├── skills/
 │   └── prompts.py         # System prompt constants for each agent role
-├── tests/
-│   ├── test_mcp_server.py
-│   ├── test_researcher.py
-│   └── test_orchestrator.py
+├── plan_schema.py         # Shared plan validation (no agents↔llm dependency)
+├── tests/                 # pytest suite (APIs mocked — no tokens burned)
 ├── main.py                # CLI entry point
 ├── config.py              # Environment variable loading
 ├── .env.example
@@ -163,12 +167,22 @@ pytest tests/ -v
 
 | Tool | Purpose |
 |------|---------|
-| [Anthropic Python SDK](https://github.com/anthropic/anthropic-sdk-python) | Claude API + tool use (default) |
+| [Anthropic Python SDK](https://github.com/anthropics/anthropic-sdk-python) | Claude API + tool use (default) |
 | [OpenAI Python SDK](https://github.com/openai/openai-python) | OpenRouter, Together, Groq, Ollama |
 | [FastMCP](https://github.com/jlowin/fastmcp) | MCP server framework |
 | [Tavily](https://tavily.com) | Web search API |
 | [pytest](https://pytest.org) | Testing |
 | [python-dotenv](https://github.com/theskumar/python-dotenv) | Env variable management |
+
+---
+
+## Blog — "Agents in Practice" series
+
+Three-part write-up on how Sage works, with code (drafts in [`content/`](content/); live URLs added as each part is published):
+
+1. **Building an MCP server from scratch** — FastMCP, stdio transport, and the `Connection closed` war story
+2. **One agent, one job** — why a four-agent pipeline beats one mega-prompt
+3. **One env var, any model** — forced tool_use vs JSON planning behind a single validator
 
 ---
 

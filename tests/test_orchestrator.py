@@ -5,6 +5,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from agents.orchestrator import Orchestrator, run_research_pipeline
+
 VALID_PLAN = [
     {"step": 1, "search_query": "climate policy overview", "goal": "Overview"},
     {"step": 2, "search_query": "carbon pricing mechanisms", "goal": "Pricing"},

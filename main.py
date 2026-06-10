@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import builtins
 import sys
 import traceback
 from pathlib import Path
@@ -20,10 +21,15 @@ def _default_log(message: str, stream: TextIO | None = None) -> None:
     print(message, file=stream or sys.stderr)
 
 
+# BaseExceptionGroup is a builtin only on Python 3.11+; resolve it safely
+# so this module keeps working on Python 3.10.
+_EXCEPTION_GROUP = getattr(builtins, "BaseExceptionGroup", None)
+
+
 def _format_exception(exc: BaseException) -> str:
     """Format an exception, unwrapping ExceptionGroup on Python 3.11+."""
     parts = [str(exc)]
-    if isinstance(exc, BaseExceptionGroup):
+    if _EXCEPTION_GROUP is not None and isinstance(exc, _EXCEPTION_GROUP):
         for i, sub in enumerate(exc.exceptions):
             parts.append(f"  [{i + 1}] {type(sub).__name__}: {sub}")
     return "\n".join(parts)

@@ -11,7 +11,6 @@ from agents.researcher import (
     validate_plan,
 )
 
-
 VALID_PLAN = [
     {"step": 1, "search_query": "renewable energy trends 2025", "goal": "Trends"},
     {"step": 2, "search_query": "solar capacity growth", "goal": "Solar data"},

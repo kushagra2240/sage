@@ -3,10 +3,7 @@
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
-import pytest
-
 from main import main, run_pipeline, save_report
-
 
 MOCK_PIPELINE_RESULT = {
     "query": "test topic",

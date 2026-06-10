@@ -7,7 +7,6 @@ import pytest
 from config import ConfigError
 from mcp_server.tools.search import format_search_results, search_web
 
-
 SAMPLE_TAVILY_RESPONSE = {
     "results": [
         {

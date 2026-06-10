@@ -15,7 +15,6 @@ from llm.planning import (
     parse_plan_from_json,
 )
 
-
 VALID_STEPS = [
     {"step": 1, "search_query": "topic overview", "goal": "Overview"},
     {"step": 2, "search_query": "recent developments", "goal": "Trends"},

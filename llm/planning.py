@@ -6,7 +6,7 @@ import json
 import re
 from typing import Any
 
-from agents.researcher import MAX_PLAN_STEPS, MIN_PLAN_STEPS, validate_plan
+from plan_schema import MAX_PLAN_STEPS, MIN_PLAN_STEPS, validate_plan
 
 PLAN_TOOL_NAME = "submit_research_plan"
 

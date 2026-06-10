@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import asyncio
 import re
-from pathlib import Path
 from typing import Any
 
 from mcp import ClientSession, StdioServerParameters
@@ -14,39 +13,17 @@ from agents.mcp_client import (
     parse_tool_result,
     run_with_session,
 )
+from plan_schema import (  # noqa: F401 — re-exported for backward compatibility
+    MAX_PLAN_STEPS,
+    MIN_PLAN_STEPS,
+    validate_plan,
+)
 from skills.prompts import RESEARCHER_PROMPT, format_research_prompt
-
-MIN_PLAN_STEPS = 3
-MAX_PLAN_STEPS = 5
 
 
 def _slugify(text: str, max_length: int = 40) -> str:
     slug = re.sub(r"[^a-z0-9]+", "-", text.lower()).strip("-")
     return slug[:max_length] or "query"
-
-
-def validate_plan(plan: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    """Ensure the orchestrator plan has 3-5 steps with required fields."""
-    if not plan:
-        raise ValueError("plan must contain at least one step")
-    if len(plan) < MIN_PLAN_STEPS or len(plan) > MAX_PLAN_STEPS:
-        raise ValueError(
-            f"plan must have between {MIN_PLAN_STEPS} and {MAX_PLAN_STEPS} steps"
-        )
-
-    validated: list[dict[str, Any]] = []
-    for item in plan:
-        query = (item.get("search_query") or item.get("query") or "").strip()
-        if not query:
-            raise ValueError("each plan step must include a search_query")
-        validated.append(
-            {
-                "step": item.get("step", len(validated) + 1),
-                "search_query": query,
-                "goal": (item.get("goal") or item.get("rationale") or "").strip(),
-            }
-        )
-    return validated
 
 
 class Researcher:

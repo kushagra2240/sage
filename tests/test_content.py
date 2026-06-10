@@ -7,7 +7,6 @@ import pytest
 
 from mcp_server.tools.content import extract_content
 
-
 SAMPLE_HTML = """
 <html><body>
 <main>
