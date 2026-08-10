@@ -86,7 +86,7 @@ sage/
 
 **1. Clone the repo**
 ```bash
-git clone https://github.com/kushagra-2240/sage.git
+git clone https://github.com/kushagra2240/sage.git
 cd sage
 ```
 
@@ -178,9 +178,61 @@ pytest tests/ -v
 
 ## Blog — "Agents in Practice" series
 
-Write-ups on how Sage works, with code. Links added as each part is published:
+A three-part write-up on how Sage works, with code and the mistakes I made building it.
 
-1. **Building an MCP server from scratch** — FastMCP, stdio transport, and the `Connection closed` war story *(coming soon)*
+1. **[I Stopped Reading MCP Tutorials and Built a Server Instead](https://medium.com/@kushagra.pandey/i-stopped-reading-mcp-tutorials-and-built-a-server-instead-63cde118fbef)** — Authoring an MCP server with FastMCP: why a tool's docstring is really a prompt, why "how you spawn the server" is part of your API, and why every spawn failure surfaces as the same `Connection closed` error.
+
+2. **Why the Most Reliable Part of My AI Agent Uses No AI (https://medium.com/@kushagra.pandey/why-the-most-reliable-part-of-my-ai-agent-uses-no-ai-5c30737800ad) ** — Multi-agent orchestration as a *pipeline, not a swarm*. Sage splits research into four agents with strict boundaries (Orchestrator → Researcher → Analyst → Writer), each doing one job. The counterintuitive core: the Researcher, the agent that does the actual research, makes **zero LLM calls** — once the plan is a validated contract, gathering is deterministic plumbing. The payoff is debuggability (a bad report decomposes into plan, notes, and analysis, so the failing stage identifies itself); the trade-off, taken knowingly, is that a strict pipeline can't re-plan mid-run. *(link coming with publication)*
+
+3. **Getting the Same Agent Pipeline to Run on Claude and Llama (https://medium.com/@kushagra.pandey/forced-tool-use-is-just-structured-output-in-disguise-6819611cb99d)** — Making the pipeline provider-agnostic. The Orchestrator must emit a machine-readable plan, and the two API families get there differently: Claude via **forced tool use** (a fictional tool whose input schema *is* your output schema), OpenAI-compatible endpoints via **JSON mode** plus a fallback and markdown-fence stripping. Both paths converge on one `validate_plan()` — the validator, not the API feature, is the real schema. Result: switch between Claude and Llama 3.3 70B with a single env var, same pipeline, same report. *(link coming with publication)*
+
+---
+
+## Use Sage's tools from any MCP client
+
+Because `sage-tools` is a standard MCP server, any MCP-compatible host can call `web_search`, `extract_content`, and `save_note` directly — no code changes. The host launches the server as a subprocess over stdio; you only provide the launch command, working directory, and environment.
+
+### Claude Desktop
+
+Edit `claude_desktop_config.json` (Settings → Developer → Edit Config; on Windows the Microsoft Store build reads the copy under `…\AppData\Local\Packages\<id>\LocalCache\Roaming\Claude\`) and add:
+
+```json
+{
+  "mcpServers": {
+    "sage-tools": {
+      "command": "D:\\projects\\sage\\.venv\\Scripts\\python.exe",
+      "args": ["-m", "mcp_server"],
+      "env": {
+        "PYTHONPATH": "D:\\projects\\sage",
+        "TAVILY_API_KEY": "your_tavily_key"
+      }
+    }
+  }
+}
+```
+
+Claude Desktop runs servers in an isolated environment, so pass `TAVILY_API_KEY` explicitly. `PYTHONPATH` stands in for a working directory (the config schema has no `cwd`), letting `python -m mcp_server` resolve the package. Restart Claude Desktop fully; the three tools appear under the Connectors → Desktop section.
+
+### Google Antigravity (and other MCP hosts)
+
+Antigravity, Cursor, VS Code, and similar tools use the same `mcpServers` shape. For Antigravity, add the block to `~/.gemini/config/mcp_config.json` (or IDE → agent panel → **Manage MCP Servers → View raw config**):
+
+```json
+{
+  "mcpServers": {
+    "sage-tools": {
+      "command": "/absolute/path/to/sage/.venv/bin/python",
+      "args": ["-m", "mcp_server"],
+      "env": {
+        "PYTHONPATH": "/absolute/path/to/sage",
+        "TAVILY_API_KEY": "${TAVILY_API_KEY}"
+      }
+    }
+  }
+}
+```
+
+The capability that makes this work is simply the **MCP client (host) support** built into each app — the same protocol, one config format, portable across hosts. Use `${VAR}` substitution for secrets where the host supports it, and always give absolute command paths.
 
 ---
 
