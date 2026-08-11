@@ -12,6 +12,7 @@ from config import (
     get_default_model,
     get_llm_provider_name,
     get_openai_api_key,
+    get_openai_max_tokens_parameter,
     get_tavily_api_key,
     validate_config,
 )
@@ -55,6 +56,25 @@ class TestGetOpenaiApiKey:
             os.environ.pop("OPENAI_API_KEY", None)
             with pytest.raises(ConfigError, match="OPENAI_API_KEY"):
                 get_openai_api_key()
+
+
+class TestGetOpenaiMaxTokensParameter:
+    def test_defaults_to_auto(self):
+        with patch.dict(os.environ, {}, clear=True):
+            assert get_openai_max_tokens_parameter() == "auto"
+
+    def test_accepts_explicit_parameter(self):
+        with patch.dict(
+            os.environ, {"OPENAI_MAX_TOKENS_PARAMETER": "max_completion_tokens"}, clear=True
+        ):
+            assert get_openai_max_tokens_parameter() == "max_completion_tokens"
+
+    def test_raises_on_invalid_parameter(self):
+        with patch.dict(
+            os.environ, {"OPENAI_MAX_TOKENS_PARAMETER": "unsupported"}, clear=True
+        ):
+            with pytest.raises(ConfigError, match="OPENAI_MAX_TOKENS_PARAMETER"):
+                get_openai_max_tokens_parameter()
 
 
 class TestGetTavilyApiKey:

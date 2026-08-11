@@ -139,6 +139,78 @@ class TestOpenAIProviderComplete:
 
         assert result.text == "Report text"
         assert result.output_tokens == 15
+        mock_client.chat.completions.create.assert_called_once()
+        assert (
+            mock_client.chat.completions.create.call_args.kwargs["max_tokens"] == 100
+        )
+
+    @patch("llm.openai_provider.OpenAI")
+    def test_complete_uses_new_output_limit_for_gpt_5(self, mock_cls):
+        choice = MagicMock()
+        choice.message.content = "Report text"
+        response = MagicMock()
+        response.choices = [choice]
+        response.model = "gpt-5.6-luna"
+        response.usage.prompt_tokens = 5
+        response.usage.completion_tokens = 15
+
+        mock_client = MagicMock()
+        mock_client.chat.completions.create.return_value = response
+        mock_cls.return_value = mock_client
+
+        provider = OpenAICompatibleProvider(
+            api_key="sk-test", base_url="https://api.openai.com/v1"
+        )
+        provider.complete(
+            system="sys",
+            user="user",
+            model="gpt-5.6-luna",
+            max_tokens=100,
+        )
+
+        kwargs = mock_client.chat.completions.create.call_args.kwargs
+        assert kwargs["max_completion_tokens"] == 100
+        assert "max_tokens" not in kwargs
+
+    @patch("llm.openai_provider.OpenAI")
+    def test_explicit_output_limit_parameter_overrides_auto(self, mock_cls):
+        mock_client = MagicMock()
+        mock_cls.return_value = mock_client
+        provider = OpenAICompatibleProvider(
+            api_key="sk-test",
+            base_url="http://localhost:11434/v1",
+            max_tokens_parameter="max_completion_tokens",
+        )
+
+        assert provider._output_token_kwargs("llama3.3", 100) == {
+            "max_completion_tokens": 100
+        }
+
+    @patch("llm.openai_provider.OpenAI")
+    def test_complete_reports_empty_model_output(self, mock_cls):
+        choice = MagicMock()
+        choice.message.content = ""
+        choice.finish_reason = "length"
+        response = MagicMock()
+        response.choices = [choice]
+        response.model = "gpt-5.6-luna"
+        response.usage.prompt_tokens = 5
+        response.usage.completion_tokens = 4096
+
+        mock_client = MagicMock()
+        mock_client.chat.completions.create.return_value = response
+        mock_cls.return_value = mock_client
+        provider = OpenAICompatibleProvider(
+            api_key="sk-test", base_url="https://api.openai.com/v1"
+        )
+
+        with pytest.raises(RuntimeError, match="returned no text"):
+            provider.complete(
+                system="sys",
+                user="user",
+                model="gpt-5.6-luna",
+                max_tokens=4096,
+            )
 
     @patch("llm.openai_provider.OpenAI")
     def test_create_plan_json_parses_steps(self, mock_cls):

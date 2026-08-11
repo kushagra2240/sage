@@ -9,3 +9,5 @@ __pycache__/
 .ruff_cache/
 prompts/
 content/
+report_sage.md
+workings.md

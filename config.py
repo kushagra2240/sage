@@ -22,6 +22,11 @@ class LLMProviderName(str, Enum):
 DEFAULT_ANTHROPIC_MODEL = "claude-sonnet-4-6"
 DEFAULT_OPENAI_MODEL = "meta-llama/llama-3.3-70b-instruct"
 DEFAULT_OPENAI_BASE_URL = "https://openrouter.ai/api/v1"
+OPENAI_MAX_TOKENS_PARAMETERS = {
+    "auto",
+    "max_tokens",
+    "max_completion_tokens",
+}
 
 
 def get_llm_provider_name() -> LLMProviderName:
@@ -83,6 +88,23 @@ def get_openai_base_url() -> str:
     return url
 
 
+def get_openai_max_tokens_parameter() -> str:
+    """Return the output-token parameter for an OpenAI-compatible endpoint.
+
+    ``auto`` selects ``max_completion_tokens`` for GPT-5 and reasoning model
+    families, and the legacy ``max_tokens`` parameter for other compatible
+    endpoints such as Ollama. Set the environment variable explicitly when an
+    OpenAI-compatible gateway has different requirements.
+    """
+    value = os.getenv("OPENAI_MAX_TOKENS_PARAMETER", "auto").strip().lower()
+    if value not in OPENAI_MAX_TOKENS_PARAMETERS:
+        choices = ", ".join(sorted(OPENAI_MAX_TOKENS_PARAMETERS))
+        raise ConfigError(
+            f"OPENAI_MAX_TOKENS_PARAMETER must be one of: {choices}; got: {value!r}"
+        )
+    return value
+
+
 def get_tavily_api_key() -> str:
     """Return the Tavily API key from the environment."""
     key = os.getenv("TAVILY_API_KEY", "").strip()
@@ -105,5 +127,6 @@ def validate_config(provider: str | LLMProviderName | None = None) -> dict[str, 
     else:
         result["openai_api_key"] = get_openai_api_key()
         result["openai_base_url"] = get_openai_base_url()
+        result["openai_max_tokens_parameter"] = get_openai_max_tokens_parameter()
 
     return result

@@ -22,7 +22,7 @@ def _result_to_dict(result: CompletionResult) -> dict[str, Any]:
 def analyze_findings(
     findings: str,
     model: str | None = None,
-    max_tokens: int = 2048,
+    max_tokens: int = 4096,
     provider: LLMProvider | None = None,
 ) -> dict[str, Any]:
     """

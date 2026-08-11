@@ -23,7 +23,7 @@ def write_report(
     analysis: str,
     audience: str = "general",
     model: str | None = None,
-    max_tokens: int = 4096,
+    max_tokens: int = 8192,
     provider: LLMProvider | None = None,
 ) -> dict[str, Any]:
     """
